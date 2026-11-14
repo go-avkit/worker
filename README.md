@@ -105,9 +105,11 @@ Block's lacing header, because the reader unlaces every block up front and a
 set of container elements the scan descends into is derived from ebml-go's
 element table, and a test fails if they differ. The pre-scan is the first line;
 the second is the reader's own bound (go-avkit/avkit v0.17.0,
-`container.NewReaderWithLimits`), called with the same clamped limits, whose
-`ErrReaderLimit` is answered `video.limit`; a test bypasses the pre-scan and the
-reader still refuses. The MP4 sample tables are not pre-scanned: the reader's own bounds apply there.
+`container.NewReaderWithLimits`, v0.18.0 for MP4 boxes), called with the same
+clamped limits (frames per track and per file, `MaxBoxes`, `MaxDepth`), whose
+`ErrReaderLimit` is answered `video.limit`; tests bypass the pre-scan, with a
+laced Matroska bomb and an MP4 box flood inside `moov`, and the reader still
+refuses. The MP4 sample tables are not pre-scanned: the reader's own bounds apply there.
 
 A panic in the reader or the decoder is answered as a `video.syntax` refusal, in
 `Server.Handle` and again at the worker boundary, and the worker keeps serving.

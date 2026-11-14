@@ -6,6 +6,7 @@ package serve
 import (
 	"errors"
 	"math"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -59,6 +60,35 @@ func TestReaderRefusesLacedBombWithoutThePrescan(t *testing.T) {
 	var e *proto.Error
 	if !errors.As(err, &e) || e.Code != proto.CodeLimit || !strings.Contains(e.Msg, "reader limit") {
 		t.Errorf("open with the pre-scan bypassed: %v", err)
+	}
+}
+
+// The reader's box bound (avkit v0.18.0) is the second line for MP4: a flood of
+// boxes inside moov, with the pre-scan bypassed, is refused as video.limit by
+// the reader with a small allocation. avkit v0.17.0 has no such bound and this
+// fails there.
+func TestReaderRefusesMP4BoxFloodWithoutThePrescan(t *testing.T) {
+	var flood []byte
+	for range 20000 {
+		flood = append(flood, box("free", nil)...)
+	}
+	data := append(append([]byte{}, ftyp...), box("moov", flood)...)
+	lim := proto.DefaultLimits
+	lim.MaxBoxes = 1000
+	if _, _, err := sniff(data, lim); err == nil {
+		t.Fatal("the pre-scan accepted it: this test would not reach the reader")
+	}
+	var before, after runtime.MemStats
+	runtime.GC()
+	runtime.ReadMemStats(&before)
+	_, err := open(data, "mp4", "video/mp4", lim)
+	runtime.ReadMemStats(&after)
+	var e *proto.Error
+	if !errors.As(err, &e) || e.Code != proto.CodeLimit || !strings.Contains(e.Msg, "reader limit") {
+		t.Errorf("open with the pre-scan bypassed: %v", err)
+	}
+	if got := after.TotalAlloc - before.TotalAlloc; got > 1<<20 {
+		t.Errorf("refusing cost %d bytes of allocation", got)
 	}
 }
 

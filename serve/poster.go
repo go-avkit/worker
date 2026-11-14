@@ -34,6 +34,7 @@ func open(data []byte, format, mime string, lim proto.Limits) (*file, error) {
 	// the pre-scan: the same limits, a request can only lower them
 	r, err := container.NewReaderWithLimits(data, container.ReaderLimits{
 		MaxTrackFrames: lim.MaxTrackSamples, MaxFrames: 2 * lim.MaxTrackSamples,
+		MaxBoxes: lim.MaxBoxes, MaxBoxDepth: lim.MaxDepth,
 	})
 	if errors.Is(err, container.ErrReaderLimit) {
 		return nil, refuse(proto.CodeLimit, "the %s container is over a reader limit: %v", format, err)
