@@ -102,7 +102,12 @@ Block's lacing header, because the reader unlaces every block up front and a
 ([go-avkit/avkit#120](https://github.com/go-avkit/avkit/issues/120)). More than
 `MaxTrackSamples` frames in a track, or twice that in the file, is `video.limit`
 (a 70 KB file of 10,000 laced blocks is refused with under 3 KB allocated). The
-MP4 sample tables are not pre-scanned: the reader's own bounds apply there.
+set of container elements the scan descends into is derived from ebml-go's
+element table, and a test fails if they differ. The pre-scan is the first line;
+the second is the reader's own bound (go-avkit/avkit v0.17.0,
+`container.NewReaderWithLimits`), called with the same clamped limits, whose
+`ErrReaderLimit` is answered `video.limit`; a test bypasses the pre-scan and the
+reader still refuses. The MP4 sample tables are not pre-scanned: the reader's own bounds apply there.
 
 A panic in the reader or the decoder is answered as a `video.syntax` refusal, in
 `Server.Handle` and again at the worker boundary, and the worker keeps serving.
