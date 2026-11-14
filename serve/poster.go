@@ -79,7 +79,7 @@ func (f *file) poster(t float64, lim proto.Limits) ([]byte, int, int, error) {
 	if err != nil {
 		switch {
 		case errors.Is(err, decode.ErrPosterLimit), errors.Is(err, decode.ErrOverLimit):
-			return nil, 0, 0, refuse(proto.CodeLimit, "the poster at %gs costs more than the %d samples read: %v", t, lim.MaxSamples, err)
+			return nil, 0, 0, refuse(proto.CodeLimit, "the poster at %gs is over a limit of this worker: %v", t, err)
 		case errors.Is(err, decode.ErrUnsupported):
 			return nil, 0, 0, refuse(proto.CodeCodec, "the H.264 stream uses a tool that is not decoded: %v", err)
 		case errors.Is(err, decode.ErrTime):

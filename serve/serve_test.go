@@ -236,7 +236,9 @@ func bomb(t *testing.T, name string, data []byte, lim proto.Limits, want string,
 	if res.Code != want || img != nil {
 		t.Fatalf("%s: %+v, want a %s refusal", name, res, want)
 	}
-	if got := after.TotalAlloc - before.TotalAlloc; got > budget {
+	got := after.TotalAlloc - before.TotalAlloc
+	t.Logf("%s: %d bytes in, refused %s, %d bytes allocated", name, len(data), res.Code, got)
+	if got > budget {
 		t.Errorf("%s: refusing cost %d bytes of allocation (budget %d)", name, got, budget)
 	}
 }
@@ -271,6 +273,21 @@ func TestBombsAreRefusedWithinMemory(t *testing.T) {
 	bomb(t, "300000 elements", ebml, huge, proto.CodeLimit, 1<<20)
 	bomb(t, "deep elements", ebmlDeep, huge, proto.CodeLimit, 1<<20)
 	bomb(t, "over the file size", over, huge, proto.CodeLimit, 1<<20)
+}
+
+// A panic in a reader is a refusal, the lock is released and the worker serves
+// the next request.
+func TestAPanicIsARefusal(t *testing.T) {
+	s := &Server{}
+	beforeHandle = func() { panic("boom") }
+	res, img := s.Handle(proto.Request{ID: 5, Op: proto.OpProbe}, nil)
+	beforeHandle = func() {}
+	if res.Code != proto.CodeSyntax || res.ID != 5 || img != nil || !strings.Contains(res.Error, "boom") {
+		t.Errorf("%+v", res)
+	}
+	if res, _ := send(s, proto.OpProbe, read(t, "bframes.mp4"), 0, proto.Limits{}); !res.OK() {
+		t.Errorf("after the panic: %+v", res)
+	}
 }
 
 // A held file is not a way round the bounds: nothing is held for a refused file.

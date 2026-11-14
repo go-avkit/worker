@@ -17,6 +17,8 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
+	"math"
 	"syscall/js"
 
 	"github.com/go-avkit/worker/proto"
@@ -47,25 +49,38 @@ func main() {
 }
 
 // answer reads one request off a port and posts its answer.
+// A message of the wrong shape, or a panic, is answered with a refusal and the
+// worker keeps serving.
 func answer(srv *serve.Server, port, msg js.Value) {
+	id := 0
+	defer func() {
+		if p := recover(); p != nil {
+			post(port, proto.Response{ID: id, Code: proto.CodeSyntax, Error: fmt.Sprint("the request could not be served: ", p)}, nil)
+		}
+	}()
 	if msg.Type() != js.TypeObject || msg.Get("json").Type() != js.TypeString {
 		return
 	}
 	req, err := proto.DecodeRequest([]byte(msg.Get("json").String()))
+	id = req.ID
 	if err != nil {
 		code, text := codeOf(err)
 		post(port, proto.Response{ID: req.ID, Code: code, Error: text}, nil)
 		return
 	}
 	var payload []byte
-	if d := msg.Get("data"); d.Truthy() {
+	if d := msg.Get("data"); !d.IsUndefined() && !d.IsNull() {
 		// the file is bounded before it is copied into this module's memory
-		n := d.Get("byteLength").Int()
-		if n > proto.DefaultLimits.MaxBytes {
+		if d.Type() != js.TypeObject || d.Get("byteLength").Type() != js.TypeNumber {
+			post(port, proto.Response{ID: req.ID, Code: proto.CodeSyntax, Error: "the payload is not an ArrayBuffer"}, nil)
+			return
+		}
+		n := d.Get("byteLength").Float()
+		if n < 0 || n != math.Floor(n) || n > float64(proto.DefaultLimits.MaxBytes) {
 			post(port, proto.Response{ID: req.ID, Code: proto.CodeLimit, Error: "the file is larger than the 64 MiB read"}, nil)
 			return
 		}
-		payload = make([]byte, n)
+		payload = make([]byte, int(n))
 		js.CopyBytesToGo(payload, js.Global().Get("Uint8Array").New(d))
 	}
 	res, img := srv.Handle(req, payload)

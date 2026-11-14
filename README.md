@@ -94,11 +94,32 @@ request that reads it.
 
 A header and a file are untrusted. The header is bounded (64 KiB), and a
 payload is bounded before it is copied (the worker refuses a file over 64 MiB on
-its length alone). Boxes and EBML elements are counted and their nesting measured
-before the container reader builds anything; the poster's work is bounded by
-samples. Fuzz targets: `FuzzDecodeRequest`, `FuzzClampOnlyLowers`, `FuzzHandle`
-(corpus in `testdata/fuzz`); the bomb tests (`TestBombsAreRefusedWithinMemory`)
-assert a refusal and a small allocation, and CI runs the suite under `GOMEMLIMIT`.
+its length alone). Before the container reader builds anything, a pre-scan counts
+the boxes (MP4) or elements (Matroska), measures their nesting, and, for
+Matroska, counts the **frames** the blocks hold: it reads each SimpleBlock and
+Block's lacing header, because the reader unlaces every block up front and a
+7-byte laced block stands for 256 frames
+([go-avkit/avkit#120](https://github.com/go-avkit/avkit/issues/120)). More than
+`MaxTrackSamples` frames in a track, or twice that in the file, is `video.limit`
+(a 70 KB file of 10,000 laced blocks is refused with under 3 KB allocated). The
+MP4 sample tables are not pre-scanned: the reader's own bounds apply there.
+
+A panic in the reader or the decoder is answered as a `video.syntax` refusal, in
+`Server.Handle` and again at the worker boundary, and the worker keeps serving.
+The message types the page sends are checked (a payload that is not an
+ArrayBuffer is refused, not a crash).
+
+**Decode time is not bounded by a clock.** A poster is bounded by samples
+(`MaxSamples`, 600), not by time: a 4096 x 4096, 600-frame, single-GOP H.264 file
+took 12.4 s for one poster natively (indicative, machine at load 12). The decoder
+has no deadline hook; a page should treat a poster request as slow and keep its
+own timeout. Lower `MaxSamples`, `MaxWidth` and `MaxHeight` in the request to
+shorten the worst case.
+
+Fuzz targets: `FuzzDecodeRequest`, `FuzzClampOnlyLowers`, `FuzzHandle` (all nine
+limits, hostile payloads; corpus in `testdata/fuzz`); the bomb tests
+(`TestBombsAreRefusedWithinMemory`, `TestLacedBlockBombsAreRefused`) assert a
+refusal and a small allocation, and CI runs the suite under `GOMEMLIMIT`.
 The test videos in `serve/testdata` are the small files of go-slides' video tests.
 
 ## Size

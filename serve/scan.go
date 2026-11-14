@@ -118,9 +118,41 @@ func ebmlVint(b []byte, keepMarker bool) (v uint64, n int) {
 	return v, n
 }
 
-// scanEBML counts and nests the elements as scanBoxes does the boxes.
+// The Matroska block elements: a SimpleBlock, and the Block of a BlockGroup.
+const (
+	idSimpleBlock = 0xA3
+	idBlock       = 0xA1
+)
+
+// blockFrames is the number of frames a block carries, from its header alone
+// (Matroska, "Block Lacing"): the track number (a vint), a 16-bit timecode, a
+// flags byte whose bits 0x06 name the lacing (none, Xiph, fixed-size, EBML), and
+// for a laced block a byte holding the number of frames less one. A reader
+// unlaces every block up front, so a 7-byte block can stand for 256 frames
+// (go-avkit/avkit#120). ok is false for a block too short to say; the container
+// reader judges it.
+func blockFrames(body []byte) (track uint64, frames int, ok bool) {
+	track, n := ebmlVint(body, false)
+	if n == 0 || len(body) < n+3 {
+		return 0, 0, false
+	}
+	if body[n+2]&0x06 == 0 {
+		return track, 1, true
+	}
+	if len(body) < n+4 {
+		return 0, 0, false
+	}
+	return track, int(body[n+3]) + 1, true
+}
+
+// scanEBML counts and nests the elements as scanBoxes does the boxes, and
+// counts the frames the blocks hold, laced ones included: at most
+// lim.MaxTrackSamples for one track and twice that for the file, since the
+// container reader builds a record for every frame before the first poster is
+// asked for.
 func scanEBML(data []byte, lim proto.Limits) error {
-	count := 0
+	count, total := 0, 0
+	perTrack := map[uint64]int{}
 	var walk func(b []byte, depth int) error
 	walk = func(b []byte, depth int) error {
 		if depth > lim.MaxDepth {
@@ -146,6 +178,17 @@ func scanEBML(data []byte, lim proto.Limits) error {
 			if ebmlMasters[uint32(id)] {
 				if err := walk(body[:size], depth+1); err != nil {
 					return err
+				}
+			} else if id == idSimpleBlock || id == idBlock {
+				if track, frames, ok := blockFrames(body[:size]); ok {
+					perTrack[track] += frames
+					total += frames
+					if perTrack[track] > lim.MaxTrackSamples {
+						return refuse(proto.CodeLimit, "track %d holds more than %d frames (laced blocks counted)", track, lim.MaxTrackSamples)
+					}
+					if total > 2*lim.MaxTrackSamples {
+						return refuse(proto.CodeLimit, "the file holds more than %d frames (laced blocks counted)", 2*lim.MaxTrackSamples)
+					}
 				}
 			}
 			b = body[size:]

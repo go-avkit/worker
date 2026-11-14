@@ -14,6 +14,7 @@ package serve
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/go-avkit/worker/proto"
@@ -38,9 +39,26 @@ type held struct {
 // Handle answers one request. payload is the file when req.HasData, and the
 // picture of a poster's answer is the second result. The limits are
 // proto.Clamp(req.Limits): a request lowers them, never raises them.
-func (s *Server) Handle(req proto.Request, payload []byte) (proto.Response, []byte) {
+//
+// A panic in the container reader or the decoder, on a file nobody foresaw, is
+// answered as a video.syntax refusal and the worker keeps serving.
+func (s *Server) Handle(req proto.Request, payload []byte) (res proto.Response, img []byte) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	defer func() {
+		if p := recover(); p != nil {
+			res = proto.Response{ID: req.ID, Code: proto.CodeSyntax, Error: fmt.Sprintf("the file could not be read (internal error: %v)", p)}
+			img = nil
+		}
+	}()
+	beforeHandle()
+	return s.handle(req, payload)
+}
+
+// beforeHandle is a seam for the test of the recover: nothing else sets it.
+var beforeHandle = func() {}
+
+func (s *Server) handle(req proto.Request, payload []byte) (proto.Response, []byte) {
 	res := proto.Response{ID: req.ID}
 	lim := proto.Clamp(req.Limits)
 	if req.Op != proto.OpPoster && req.Op != proto.OpProbe {
