@@ -30,7 +30,14 @@ type file struct {
 
 // open reads the description of data, which sniff has accepted.
 func open(data []byte, format, mime string, lim proto.Limits) (*file, error) {
-	r, err := container.NewReader(data)
+	// the reader's own bound on the frames it unpacks is the second line, after
+	// the pre-scan: the same limits, a request can only lower them
+	r, err := container.NewReaderWithLimits(data, container.ReaderLimits{
+		MaxTrackFrames: lim.MaxTrackSamples, MaxFrames: 2 * lim.MaxTrackSamples,
+	})
+	if errors.Is(err, container.ErrReaderLimit) {
+		return nil, refuse(proto.CodeLimit, "the %s container is over a reader limit: %v", format, err)
+	}
 	if err != nil {
 		return nil, refuse(proto.CodeSyntax, "the %s container cannot be read: %v", format, err)
 	}

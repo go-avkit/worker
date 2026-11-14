@@ -4,7 +4,9 @@
 package serve
 
 import (
+	"errors"
 	"math"
+	"strings"
 	"testing"
 
 	"github.com/go-avkit/worker/proto"
@@ -41,6 +43,23 @@ func laced(blocks, n, tracks int, group bool) []byte {
 		d = append(d, b...)
 	}
 	return d
+}
+
+// The reader's own bound (avkit v0.17.0) is a second line: with the pre-scan
+// bypassed (open called directly), the reader still refuses the bomb as
+// video.limit, and a lowered MaxTrackSamples is passed on to it.
+func TestReaderRefusesLacedBombWithoutThePrescan(t *testing.T) {
+	data := laced(1000, 256, 1, false) // 256,000 frames
+	lim := proto.DefaultLimits
+	lim.MaxTrackSamples = 100000
+	if _, _, err := sniff(data, lim); err == nil {
+		t.Fatal("the pre-scan accepted it: this test would not reach the reader")
+	}
+	_, err := open(data, "webm", "video/webm", lim)
+	var e *proto.Error
+	if !errors.As(err, &e) || e.Code != proto.CodeLimit || !strings.Contains(e.Msg, "reader limit") {
+		t.Errorf("open with the pre-scan bypassed: %v", err)
+	}
 }
 
 func TestBlockFrames(t *testing.T) {

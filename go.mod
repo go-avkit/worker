@@ -4,7 +4,7 @@ go 1.27.1
 
 require (
 	github.com/at-wat/ebml-go v0.19.4
-	github.com/go-avkit/avkit v0.16.0
+	github.com/go-avkit/avkit v0.17.0
 	github.com/go-avkit/decode v0.5.4
 )
 
