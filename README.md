@@ -106,8 +106,14 @@ MP4 sample tables are not pre-scanned: the reader's own bounds apply there.
 
 A panic in the reader or the decoder is answered as a `video.syntax` refusal, in
 `Server.Handle` and again at the worker boundary, and the worker keeps serving.
-The message types the page sends are checked (a payload that is not an
-ArrayBuffer is refused, not a crash).
+The message types the page sends are checked: a payload that is not an
+ArrayBuffer is refused, and a message that is not an object, or a `videoPort`
+that is not a port, is ignored, not a crash.
+
+**A file just under the cap costs memory.** The reader builds its tables up
+front: the reviewer measured a 7 KB file of valid structure at 96 MiB allocated,
+35 MiB retained per held file, so about 160 MiB with the 2 files held. That cost
+is bounded by the frame and sample limits above, not by the file's size.
 
 **Decode time is not bounded by a clock.** A poster is bounded by samples
 (`MaxSamples`, 600), not by time: a 4096 x 4096, 600-frame, single-GOP H.264 file

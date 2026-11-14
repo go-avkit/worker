@@ -28,11 +28,18 @@ import (
 func main() {
 	srv := &serve.Server{}
 	js.Global().Set("onmessage", js.FuncOf(func(_ js.Value, args []js.Value) any {
-		if len(args) == 0 {
+		// a message of the wrong shape, or a port that is not one, is ignored
+		defer func() { _ = recover() }()
+		if len(args) == 0 || args[0].Type() != js.TypeObject {
 			return nil
 		}
-		port := args[0].Get("data").Get("videoPort")
-		if !port.Truthy() {
+		data := args[0].Get("data")
+		if data.Type() != js.TypeObject {
+			return nil
+		}
+		port := data.Get("videoPort")
+		if port.Type() != js.TypeObject || port.Get("addEventListener").Type() != js.TypeFunction ||
+			port.Get("postMessage").Type() != js.TypeFunction || port.Get("start").Type() != js.TypeFunction {
 			return nil
 		}
 		port.Call("addEventListener", "message", js.FuncOf(func(_ js.Value, a []js.Value) any {
