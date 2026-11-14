@@ -8,6 +8,7 @@ import (
 	"encoding/binary"
 	"fmt"
 
+	"github.com/at-wat/ebml-go"
 	"github.com/go-avkit/worker/proto"
 )
 
@@ -87,14 +88,27 @@ func scanBoxes(data []byte, lim proto.Limits) error {
 	return walk(data, 1)
 }
 
-// ebmlMasters are the Matroska elements whose children are elements: Segment,
-// SeekHead, Info, Tracks, TrackEntry, Video, Cluster, BlockGroup, Cues,
-// CuePoint, CueTrackPositions, Tags, Tag, Chapters, EditionEntry, ChapterAtom,
-// BlockAdditions, Attachments.
-var ebmlMasters = map[uint32]bool{
-	0x18538067: true, 0x114D9B74: true, 0x1549A966: true, 0x1654AE6B: true, 0xAE: true, 0xE0: true,
-	0x1F43B675: true, 0xA0: true, 0x1C53BB6B: true, 0xBB: true, 0xB7: true, 0x1254C367: true, 0x7373: true,
-	0x1043A770: true, 0x45B9: true, 0xB6: true, 0x75A1: true, 0x1941A469: true, 0x61A7: true, 0x4DBB: true,
+// ebmlMasters are the elements whose children are elements, derived from
+// ebml-go's element table (every ElementType whose DataType is Master): the
+// same table the container reader decodes with, so a block can hide in no
+// master that the reader descends into and this scan does not (a hand-written
+// list missed BlockAdditionMapping, 0x41E4, and others).
+var ebmlMasters = mastersOf()
+
+func mastersOf() map[uint32]bool {
+	m := map[uint32]bool{}
+	for t := ebml.ElementInvalid + 1; t < 4096; t++ {
+		id := t.Bytes()
+		if len(id) == 0 || len(id) > 4 || t.DataType() != ebml.DataTypeMaster {
+			continue
+		}
+		var v uint32
+		for _, c := range id {
+			v = v<<8 | uint32(c)
+		}
+		m[v] = true
+	}
+	return m
 }
 
 func ebmlVint(b []byte, keepMarker bool) (v uint64, n int) {
