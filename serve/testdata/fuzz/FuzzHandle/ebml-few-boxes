@@ -1,0 +1,9 @@
+go test fuzz v1
+[]byte("\x1a\x45\xdf\xa3\x80\x18\x53\x80\x67\x01\xff\xff\xff\xff\xff\xff\xff\xec\x80")
+string("probe")
+float64(0)
+bool(true)
+int(0)
+int(2)
+int(1)
+int(0)
