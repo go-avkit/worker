@@ -16,6 +16,8 @@ github.com/go-avkit/decode v0.5.4 h1:j4jJYR5MHdLzljxAz/nlOScBtLE31OSkzf4jh3G2hXU
 github.com/go-avkit/decode v0.5.4/go.mod h1:bL60pm/MHwx+3e+7klXgNR1o+UkbWfxOHCMtDzGH6bg=
 github.com/go-avkit/h264 v0.9.0 h1:yrXbVFZCfZhG9okTJqITHdldVciXMw0ioPaH/NorWsQ=
 github.com/go-avkit/h264 v0.9.0/go.mod h1:LcFlgGaV0CHWk4oEpO3GWv+93vylXsuJeepcDW9Md3I=
+github.com/go-simd/crc64 v0.3.0 h1:JITycPGm37EWDVhf6LZAfxDfpoaJQJAT0BAbqEazuDM=
+github.com/go-simd/crc64 v0.3.0/go.mod h1:TlfHJcq2kamAj0dpaPF1Sh0NieQgOWV5+ba1Q7N4XyA=
 github.com/go-test/deep v1.1.0 h1:WOcxcdHcvdgThNXjw0t76K42FXTU7HpNQWHpA2HHNlg=
 github.com/go-test/deep v1.1.0/go.mod h1:5C2ZWiW0ErCdrYzpqxLbTX7MG14M9iiw8DgHncVwcsE=
 github.com/icza/bitio v1.1.0 h1:ysX4vtldjdi3Ygai5m1cWy4oLkhWTAi+SyO6HC8L9T0=

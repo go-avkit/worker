@@ -30,9 +30,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"hash/crc64"
 	"io"
 	"strconv"
+
+	"github.com/go-simd/crc64"
 )
 
 // The operations.

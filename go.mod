@@ -6,6 +6,7 @@ require (
 	github.com/at-wat/ebml-go v0.19.4
 	github.com/go-avkit/avkit v0.18.0
 	github.com/go-avkit/decode v0.5.4
+	github.com/go-simd/crc64 v0.3.0
 )
 
 require (
